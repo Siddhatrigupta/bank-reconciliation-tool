@@ -1,15 +1,26 @@
 import pandas as pd
 
+
 def generate_summary(bank_df, gl_df, unmatched_bank, unmatched_gl):
 
     bank_balance = bank_df['Amount'].sum()
     gl_balance = gl_df['Amount'].sum()
 
-    diff = bank_balance - gl_balance
+    difference = bank_balance - gl_balance
 
-    bank_charges = unmatched_bank[unmatched_bank['Category'] == "Bank Charges"]['Amount'].sum()
-    interest = unmatched_bank[unmatched_bank['Category'] == "Interest"]['Amount'].sum()
-    outstanding = unmatched_gl[unmatched_gl['Category'] == "Outstanding Cheque"]['Amount'].sum()
+    bank_charges = unmatched_bank[
+        unmatched_bank['Category'] == "Bank Charges"
+    ]['Amount'].sum()
+
+    interest = unmatched_bank[
+        unmatched_bank['Category'] == "Interest"
+    ]['Amount'].sum()
+
+    outstanding = unmatched_gl[
+        unmatched_gl['Category'] == "Outstanding Cheque"
+    ]['Amount'].sum()
+
+    adjusted_balance = bank_balance + interest - bank_charges - outstanding
 
     summary = pd.DataFrame({
         "Particulars": [
@@ -24,11 +35,11 @@ def generate_summary(bank_df, gl_df, unmatched_bank, unmatched_gl):
         "Amount": [
             bank_balance,
             gl_balance,
-            diff,
+            difference,
             interest,
             -bank_charges,
             -outstanding,
-            bank_balance + interest - bank_charges - outstanding
+            adjusted_balance
         ]
     })
 
@@ -39,9 +50,16 @@ def generate_output(file_name, bank_df, gl_df, matched, unmatched_bank, unmatche
 
     summary = generate_summary(bank_df, gl_df, unmatched_bank, unmatched_gl)
 
+    comment_map = {
+        "Bank Charges": "Bank deducted charges not recorded in books",
+        "Interest": "Interest credited by bank not recorded in books",
+        "Outstanding Cheque": "Cheque issued but not cleared yet",
+        "Others": "Needs manual review"
+    }
+
     with pd.ExcelWriter(file_name, engine='xlsxwriter') as writer:
 
-        # Sheet 1: Reconciliation (Template Style)
+        # Sheet 1: Reconciliation Summary
         summary.to_excel(writer, sheet_name='Bank Reco', index=False)
 
         # Sheet 2: Matched
@@ -58,18 +76,18 @@ def generate_output(file_name, bank_df, gl_df, matched, unmatched_bank, unmatche
 
         for _, row in unmatched_bank.iterrows():
             comments.append({
-                "Type": "Bank",
+                "Source": "Bank",
                 "Amount": row.get("Amount"),
                 "Category": row.get("Category"),
-                "Comment": f"{row.get('Category')} - Not in GL"
+                "Comment": comment_map.get(row.get("Category"), "Check manually")
             })
 
         for _, row in unmatched_gl.iterrows():
             comments.append({
-                "Type": "GL",
+                "Source": "GL",
                 "Amount": row.get("Amount"),
                 "Category": row.get("Category"),
-                "Comment": f"{row.get('Category')} - Not in Bank"
+                "Comment": comment_map.get(row.get("Category"), "Check manually")
             })
 
         pd.DataFrame(comments).to_excel(writer, sheet_name='Comments', index=False)

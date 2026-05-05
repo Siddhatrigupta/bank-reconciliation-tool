@@ -7,7 +7,7 @@ from template_generator import generate_output
 
 st.set_page_config(page_title="Bank Reconciliation Tool", layout="wide")
 
-st.title("🏦 Bank Reconciliation Tool (BlackLine Style)")
+st.title("🏦 Bank Reconciliation Tool")
 
 # Upload files
 bank_file = st.file_uploader("Upload Bank Statement", type=["xlsx"])
